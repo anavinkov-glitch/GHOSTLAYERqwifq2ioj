@@ -1,0 +1,8 @@
+# Ghostlayer runtime dependencies.
+#   pip install -r requirements.txt
+
+Flask>=3.0,<4.0
+PyMuPDF>=1.24
+
+# Testing only:
+#   pip install pytest
