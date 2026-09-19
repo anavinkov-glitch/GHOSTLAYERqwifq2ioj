@@ -1,0 +1,228 @@
+{% extends "base.html" %}
+{% block title %}{{ r.filename }} — Ghostlayer report{% endblock %}
+
+{% set v = r.verdict %}
+
+{% block content %}
+<div class="wrap">
+
+  <section style="padding: 44px 0 0">
+    <p class="faint" style="font-size:0.8rem; margin-bottom:18px">
+      <a href="{{ url_for('main.scan') }}">Scan another</a>
+      {% if g.user %} · <a href="{{ url_for('main.history') }}">History</a>{% endif %}
+    </p>
+
+    <div class="verdict verdict-{{ v.key }}">
+      <div class="gauge">
+        <svg viewBox="0 0 96 96" aria-hidden="true">
+          <circle class="track" cx="48" cy="48" r="42"></circle>
+          <circle class="lead s-{{ v.key }}" cx="48" cy="48" r="42"
+                  stroke-dasharray="{{ (r.score / 100 * 263.9) | round(1) }} 263.9"></circle>
+        </svg>
+        <div>
+          <span class="num c-{{ v.key }}">{{ r.score }}</span>
+          <span class="unit">risk</span>
+        </div>
+      </div>
+
+      <div class="verdict-body">
+        <h1 class="c-{{ v.key }}">{{ v.label }}</h1>
+        <p>{{ v.blurb }}</p>
+        <div class="verdict-meta">
+          <span>{{ r.filename }}</span>
+          <span>{{ size }}</span>
+          <span>{{ created }}</span>
+          <span>{{ r.duration_ms }} ms</span>
+        </div>
+      </div>
+    </div>
+
+    {% if not r.ok %}
+      <p class="flash flash-error mt-2">{{ r.error }}</p>
+    {% endif %}
+
+    <div class="metrics">
+      <div class="metric"><span class="v c-poisoned">{{ r.counts.critical }}</span><span class="k">critical</span></div>
+      <div class="metric"><span class="v c-suspicious">{{ r.counts.high }}</span><span class="k">high</span></div>
+      <div class="metric"><span class="v">{{ r.counts.medium + r.counts.low }}</span><span class="k">medium &amp; low</span></div>
+      <div class="metric"><span class="v">{{ r.stats.hidden_spans }}</span><span class="k">hidden text runs</span></div>
+      <div class="metric"><span class="v">{{ r.stats.hidden_share | pct }}</span><span class="k">of text is hidden</span></div>
+      <div class="metric"><span class="v">{{ r.stats.pages }}</span><span class="k">pages</span></div>
+    </div>
+
+    <div class="row mt-2">
+      <a class="btn btn-ghost btn-sm" href="{{ url_for('main.report_json', token=token) }}">Download JSON</a>
+      <a class="btn btn-ghost btn-sm" href="{{ url_for('main.report_text', token=token) }}">Download the model's view</a>
+      {% if g.user and row['user_id'] == g.user['id'] %}
+        <form method="post" action="{{ url_for('main.report_delete', token=token) }}"
+              onsubmit="return confirm('Delete this report permanently?')">
+          <button class="btn btn-quiet btn-sm" type="submit">Delete report</button>
+        </form>
+      {% endif %}
+    </div>
+  </section>
+
+  {% if r.hidden_text %}
+  <section class="section">
+    <div class="section-head">
+      <h2>What was hidden</h2>
+      <p>Everything below is in the file and invisible on the page. This is the text a model receives.</p>
+    </div>
+    <pre class="evidence" style="max-height:none">{{ r.hidden_text | visible }}</pre>
+  </section>
+  {% endif %}
+
+  {% if r.findings %}
+  <section class="section">
+    <div class="section-head">
+      <h2>{{ r.counts.total }} finding{{ '' if r.counts.total == 1 else 's' }}</h2>
+      <p>Ordered by severity. Open one to see the evidence and why it was flagged.</p>
+    </div>
+    <div class="findings">
+      {% for f in r.findings %}
+        <details class="finding" {% if loop.index <= 2 %}open{% endif %}>
+          <summary>
+            <span class="sev sev-{{ f.severity }}">{{ f.severity }}</span>
+            <span class="finding-title">
+              {{ f.title }}
+              <small>
+                {{ f.detector }} · {{ f.technique }}{% if f.page is not none %} · page {{ f.page + 1 }}{% endif %}
+              </small>
+            </span>
+          </summary>
+          <div class="finding-body">
+            <p>{{ f.detail }}</p>
+            {% if f.evidence %}
+              <p class="evidence-label">Evidence</p>
+              <pre class="evidence">{{ f.evidence | visible }}</pre>
+            {% endif %}
+            {% if f.extra and f.extra.decoded %}
+              <p class="evidence-label">Decoded from the tag block</p>
+              <pre class="evidence">{{ f.extra.decoded }}</pre>
+            {% endif %}
+            {% if f.extra and f.extra.hits %}
+              <p class="evidence-label">Matched patterns</p>
+              <pre class="evidence">{% for h in f.extra.hits %}{{ h.label }} (weight {{ h.weight }}) — {{ h.match }}
+{% endfor %}</pre>
+            {% endif %}
+          </div>
+        </details>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  {% if r.pages %}
+  <section class="section">
+    <div class="section-head">
+      <h2>Side by side</h2>
+      <p>
+        Left is the page as it renders. Right is every text run an extractor returns, in
+        order, with the hidden ones lit up. The boxes on the page mark where each hidden
+        run actually sits.
+      </p>
+    </div>
+
+    {% for page in r.pages %}
+      <div class="page-block">
+        <h2>Page {{ page.number }}
+          <span class="faint">— {{ page.hidden_chars }} of {{ page.total_chars }} characters hidden</span>
+        </h2>
+        <div class="lighttable">
+          <div>
+            <div class="pane-head">
+              <h3>What a person sees</h3>
+              <span>{{ page.overlays | length }} hidden region{{ '' if page.overlays|length == 1 else 's' }}</span>
+            </div>
+            {% if page.image %}
+              <div class="page-shot">
+                <img src="data:image/png;base64,{{ page.image }}" alt="Page {{ page.number }} as rendered">
+                {% for box in page.overlays %}
+                  <span class="box"
+                        data-why="{{ box.reasons | join(', ') }}"
+                        style="left:{{ box.left }}%; top:{{ box.top }}%;
+                               width:{{ box.width }}%; height:{{ box.height }}%;"></span>
+                {% endfor %}
+              </div>
+            {% else %}
+              <p class="faint">Page image not rendered for this page.</p>
+            {% endif %}
+          </div>
+
+          <div>
+            <div class="pane-head">
+              <h3>What the model reads</h3>
+              <span>{{ page.model_view | length }} runs</span>
+            </div>
+            <div class="modelview">
+              {%- for run in page.model_view -%}
+                <span class="run {% if run.hidden %}hid{% endif %}">{{ run.text | visible }}
+                  {%- if run.hidden %}<span class="why">hidden: {{ run.reasons | join(', ') }}</span>{% endif -%}
+                </span>
+              {%- endfor -%}
+            </div>
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+
+    {% if r.stats.pages > r.stats.pages_scanned %}
+      <p class="faint">
+        Showing {{ r.stats.pages_scanned }} of {{ r.stats.pages }} pages. The scan covers the
+        first {{ max_pages }} pages.
+      </p>
+    {% endif %}
+  </section>
+  {% endif %}
+
+  {% if r.metadata %}
+  <section class="section">
+    <div class="section-head">
+      <h2>Metadata</h2>
+      <p>Frequently prepended to the text a pipeline hands to a model, and rarely inspected.</p>
+    </div>
+    <div class="table-scroll">
+      <table class="table">
+        <thead><tr><th>Field</th><th>Value</th></tr></thead>
+        <tbody>
+          {% for key, value in r.metadata.items() %}
+            <tr><td class="nowrap">{{ key }}</td><td>{{ value | visible }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+  {% endif %}
+
+  <section class="section">
+    <div class="section-head">
+      <h2>Detectors that ran</h2>
+      <p>All {{ r.detectors | length }} run on every document, whether or not they find anything.</p>
+    </div>
+    <div class="table-scroll">
+      <table class="table">
+        <thead><tr><th>Detector</th><th>Looks for</th><th class="num">Hits</th><th class="num">Time</th></tr></thead>
+        <tbody>
+          {% for d in r.detectors %}
+            <tr>
+              <td class="nowrap">{{ d.label }}</td>
+              <td class="muted">{{ d.info }}</td>
+              <td class="num {% if d.hits %}c-review{% endif %}">{{ d.hits }}</td>
+              <td class="num faint">{{ d.ms }} ms</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if r.warnings %}
+      <p class="evidence-label">Warnings</p>
+      <pre class="evidence">{% for w in r.warnings %}{{ w }}
+{% endfor %}</pre>
+    {% endif %}
+    <p class="faint mt-2" style="font-size:0.76rem">
+      SHA-256 {{ r.sha256 }}
+    </p>
+  </section>
+
+</div>
+{% endblock %}

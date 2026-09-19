@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}Account — Ghostlayer{% endblock %}
+
+{% block content %}
+<div class="wrap-tight">
+
+  <section style="padding:52px 0 0">
+    <h1 style="font-size:clamp(2rem,4.5vw,3rem)">Account</h1>
+    <p class="muted">{{ account['email'] }} · member since {{ member_since }}</p>
+
+    <div class="metrics">
+      <div class="metric"><span class="v">{{ stats.total }}</span><span class="k">scans run</span></div>
+      <div class="metric"><span class="v c-suspicious">{{ stats.flagged }}</span><span class="k">came back dirty</span></div>
+      <div class="metric"><span class="v">{{ stats.findings }}</span><span class="k">findings raised</span></div>
+      <div class="metric"><span class="v">{{ stats.worst }}</span><span class="k">highest risk seen</span></div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-head">
+      <h2>API key</h2>
+      <p>
+        A scanner is most useful in front of the pipeline rather than beside it. Post a file
+        here before your system hands anything to a model.
+      </p>
+    </div>
+
+    <div class="keyline">
+      <code id="apikey">{{ account['api_key'] }}</code>
+      <button class="btn btn-ghost btn-sm" type="button" data-copy="#apikey">Copy</button>
+    </div>
+
+    <form method="post" class="mt-1"
+          onsubmit="return confirm('Issue a new key? The current one stops working straight away.')">
+      <input type="hidden" name="action" value="rotate_key">
+      <button class="btn btn-quiet btn-sm" type="submit">Issue a new key</button>
+    </form>
+
+    <p class="evidence-label">Scan a file</p>
+    <pre class="codeblock"><span class="tok">curl</span> -X POST {{ request.url_root }}api/v1/scan \
+  -H <span class="tok">"X-API-Key: {{ account['api_key'] }}"</span> \
+  -F <span class="tok">"file=@resume.pdf"</span></pre>
+
+    <p class="evidence-label">Gate a pipeline on the result</p>
+    <pre class="codeblock"><span class="tok">import</span> requests
+
+r = requests.post(
+    <span class="tok">"{{ request.url_root }}api/v1/scan"</span>,
+    headers={<span class="tok">"X-API-Key"</span>: KEY},
+    files={<span class="tok">"file"</span>: open(<span class="tok">"resume.pdf"</span>, <span class="tok">"rb"</span>)},
+).json()
+
+<span class="tok">if</span> r[<span class="tok">"score"</span>] >= 35:
+    quarantine(r[<span class="tok">"findings"</span>])
+<span class="tok">else</span>:
+    send_to_model(extracted_text)</pre>
+
+    <p class="evidence-label">Other endpoints</p>
+    <pre class="codeblock">GET  /api/v1/health          service check, no key needed
+GET  /api/v1/detectors      what the engine looks for
+GET  /api/v1/scans          your scan history
+GET  /api/v1/scan/&lt;token&gt;   one full report
+POST /api/v1/scan?pages=1   include page images and per-run text</pre>
+  </section>
+
+</div>
+{% endblock %}

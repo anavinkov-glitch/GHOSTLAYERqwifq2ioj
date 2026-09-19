@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}History — Ghostlayer{% endblock %}
+
+{% block content %}
+<div class="wrap">
+
+  <section style="padding:52px 0 0">
+    <h1 style="font-size:clamp(2rem,4.5vw,3rem)">History</h1>
+    <p class="muted">Every report stays until you delete it or it falls off the retention limit.</p>
+
+    <div class="metrics">
+      <div class="metric"><span class="v">{{ stats.total }}</span><span class="k">scans run</span></div>
+      <div class="metric"><span class="v c-suspicious">{{ stats.flagged }}</span><span class="k">came back dirty</span></div>
+      <div class="metric"><span class="v">{{ stats.findings }}</span><span class="k">findings raised</span></div>
+      <div class="metric"><span class="v">{{ stats.worst }}</span><span class="k">highest risk seen</span></div>
+    </div>
+  </section>
+
+  <section class="section">
+    {% if items %}
+      <div class="table-scroll">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>File</th><th>Verdict</th><th class="num">Risk</th>
+              <th class="num">Findings</th><th>Source</th><th>Size</th><th>When</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in items %}
+              <tr>
+                <td><a href="{{ url_for('main.report', token=item.token) }}">{{ item.filename }}</a></td>
+                <td class="c-{{ item.verdict }}">{{ item.verdict }}</td>
+                <td class="num">{{ item.score }}</td>
+                <td class="num">{{ item.findings }}</td>
+                <td class="faint">{{ item.source }}</td>
+                <td class="faint nowrap">{{ item.size }}</td>
+                <td class="faint nowrap">{{ item.when }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="panel center">
+        <h2>Nothing scanned yet</h2>
+        <p class="muted" style="margin-inline:auto">
+          Run a document through and it will show up here with its full report.
+        </p>
+        <p class="mt-1"><a class="btn" href="{{ url_for('main.scan') }}">Scan a PDF</a></p>
+      </div>
+    {% endif %}
+  </section>
+
+</div>
+{% endblock %}

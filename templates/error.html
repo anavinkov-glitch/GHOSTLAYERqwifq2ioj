@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}{{ headline }} — Ghostlayer{% endblock %}
+
+{% block content %}
+<div class="wrap error-page">
+  <div class="code">{{ code }}</div>
+  <h1 style="font-size:2rem">{{ headline }}</h1>
+  <p>{{ body }}</p>
+  <p class="mt-2"><a class="btn btn-ghost" href="{{ url_for('main.scan') }}">Scan a PDF</a></p>
+</div>
+{% endblock %}

@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Create an account — Ghostlayer{% endblock %}
+
+{% block content %}
+<div class="auth-card panel">
+  <h1>Create an account</h1>
+  <p class="muted" style="font-size:0.86rem">
+    Unlimited scanning, saved history, and an API key for putting Ghostlayer in front of
+    a pipeline.
+  </p>
+
+  <form method="post" class="mt-2">
+    <div class="field">
+      <label for="display_name">Name <span class="faint">(optional)</span></label>
+      <input type="text" name="display_name" id="display_name" value="{{ display_name }}" autocomplete="name">
+    </div>
+    <div class="field">
+      <label for="email">Email</label>
+      <input type="email" name="email" id="email" value="{{ email }}" required autocomplete="email">
+    </div>
+    <div class="field">
+      <label for="password">Password</label>
+      <input type="password" name="password" id="password" required autocomplete="new-password" minlength="8">
+      <p class="hint">Eight characters or more.</p>
+    </div>
+    <div class="field">
+      <label for="confirm">Password again</label>
+      <input type="password" name="confirm" id="confirm" required autocomplete="new-password" minlength="8">
+    </div>
+    <button class="btn" type="submit" style="width:100%">Create account</button>
+  </form>
+
+  <p class="swap">Already have one? <a href="{{ url_for('auth.login') }}">Sign in</a>.</p>
+</div>
+{% endblock %}

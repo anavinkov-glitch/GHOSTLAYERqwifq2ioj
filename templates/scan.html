@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}Scan a PDF — Ghostlayer{% endblock %}
+
+{% block content %}
+<div class="wrap-tight">
+
+  <section style="padding: 52px 0 28px">
+    <h1 style="font-size: clamp(2rem, 4.5vw, 3rem)">Scan a PDF</h1>
+    <p class="muted">
+      The file is read in memory, inspected, and dropped. Nothing is written to disk and
+      nothing is sent anywhere else.
+    </p>
+
+    {% if not g.user %}
+      {% if free_left > 0 %}
+        <p class="faint" style="font-size:0.82rem">
+          You have {{ free_left }} free scan. After that,
+          <a href="{{ url_for('auth.register') }}">create an account</a> — it stays free and
+          unlimited, and it keeps your history.
+        </p>
+      {% else %}
+        <p class="flash flash-gate">
+          You have used your free scan.
+          <a href="{{ url_for('auth.register') }}">Create an account</a> to keep scanning.
+        </p>
+      {% endif %}
+    {% endif %}
+  </section>
+
+  <form method="post" enctype="multipart/form-data" id="scanform">
+    <div class="dropzone" id="dropzone">
+      <input type="file" name="document" id="document" accept="application/pdf,.pdf"
+             aria-label="Choose a PDF to scan"
+             {% if free_left <= 0 %}disabled{% endif %}>
+      <h2>Drop a PDF here</h2>
+      <p>or click anywhere in this box to choose one. Up to {{ max_mb }} MB.</p>
+      <div class="chosen" id="chosen" aria-live="polite"></div>
+    </div>
+
+    <div class="row mt-2">
+      <button class="btn" type="submit" id="go" {% if free_left <= 0 %}disabled{% endif %}>
+        Scan it
+      </button>
+      <span class="faint" style="font-size:0.78rem">Typically under two seconds.</span>
+    </div>
+
+    <div class="busy" id="busy">
+      <span class="pulse"></span>
+      <span class="muted" style="font-size:0.84rem">Reading the content stream…</span>
+    </div>
+  </form>
+
+  <section class="section">
+    <div class="section-head">
+      <h2>Or use a sample</h2>
+      <p>Pre-built files with known payloads, so you can see a real report immediately.</p>
+    </div>
+    <div class="samples">
+      {% for sample in samples %}
+        <div class="sample">
+          <h3>{{ sample.name }}</h3>
+          <p>{{ sample.blurb }}</p>
+          <form method="post" action="{{ url_for('main.scan_sample', name=sample.file) }}">
+            <button class="btn btn-ghost btn-sm" type="submit"
+                    {% if free_left <= 0 %}disabled{% endif %}>Scan this file</button>
+          </form>
+        </div>
+      {% endfor %}
+    </div>
+  </section>
+
+  {% if recent %}
+  <section class="section">
+    <div class="section-head"><h2>Recent scans</h2></div>
+    <div class="table-scroll">
+      <table class="table">
+        <thead><tr><th>File</th><th>Verdict</th><th class="num">Score</th></tr></thead>
+        <tbody>
+        {% for row in recent %}
+          <tr>
+            <td><a href="{{ url_for('main.report', token=row['token']) }}">{{ row['filename'] }}</a></td>
+            <td class="c-{{ row['verdict'] }}">{{ row['verdict'] }}</td>
+            <td class="num">{{ row['score'] }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <p class="mt-1"><a href="{{ url_for('main.history') }}">All history</a></p>
+  </section>
+  {% endif %}
+
+</div>
+{% endblock %}
